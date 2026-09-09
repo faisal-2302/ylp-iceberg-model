@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Iceberg Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky:#0B1E2D; --sea-top:#0E3B4E; --sea-mid:#0A2C3E; --sea-deep:#04151F;
+    --ice-top:#F4FBFD; --ice-1:#D3EDF3; --ice-2:#A9D6E0; --ice-3:#79B5C2;
+    --teal:#5EEAD4; --teal-soft:#0F3B39; --amber:#F5B547;
+    --ink:#EDF6FA; --ink-muted:#93AEC0; --ink-faint:#5A7B90; --line:#1B3A4E;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--sky);color:var(--ink);font-family:'Inter',sans-serif;height:100%;overflow:hidden;}
+  .stage{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:22px 20px 34px;}
+  h1,h2{font-family:'Space Grotesk',sans-serif;margin:0;}
+  ::selection{background:var(--teal);color:#052421;}
+
+  .pips{display:flex;gap:5px;margin-bottom:clamp(10px,2vh,22px);flex:0 0 auto;}
+  .pip{flex:1;height:3px;border-radius:2px;background:var(--line);transition:background .4s ease;}
+  .pip.on{background:var(--teal);}
+
+  .slide{display:none;flex:1;flex-direction:column;min-height:0;overflow-y:auto;}
+  .slide.active{display:flex;}
+
+  .headline{font-size:clamp(19px,3.1vh,27px);font-weight:700;line-height:1.18;font-family:'Space Grotesk',sans-serif;margin-bottom:clamp(7px,1.2vh,12px);}
+  .headline .hi{color:var(--teal);}
+  .sub{font-size:clamp(12.5px,1.85vh,16px);line-height:1.55;color:var(--ink-muted);max-width:62ch;margin-bottom:clamp(8px,1.4vh,18px);}
+  .sub b{color:var(--ink);font-weight:600;}
+
+  /* ---------- the scene ---------- */
+  .scene{position:relative;width:100%;height:clamp(180px,34vh,340px);border-radius:18px;overflow:hidden;margin-bottom:clamp(8px,1.5vh,18px);flex:0 0 auto;
+         background:linear-gradient(180deg,#132B3C 0%,#1B4257 20%,#0E3B4E 27%,#0A2C3E 55%,var(--sea-deep) 100%);}
+  .sun{position:absolute;top:22px;right:34px;width:46px;height:46px;border-radius:50%;
+       background:radial-gradient(circle,#FFE6B0 0%,#F5B547 55%,rgba(245,181,71,0) 72%);opacity:.75;}
+  .waterline{position:absolute;left:0;right:0;top:108px;height:0;border-top:2px solid rgba(255,255,255,.34);}
+  .wave{position:absolute;left:0;right:0;top:104px;height:10px;opacity:.5;}
+
+  .berg-svg{position:absolute;left:0;top:0;width:100%;height:100%;}
+
+  .zone-tag{position:absolute;font-family:'Space Grotesk',sans-serif;font-size:9.5px;letter-spacing:1.1px;}
+  .zone-top{top:12px;left:16px;color:var(--amber);}
+  .zone-bot{bottom:12px;left:16px;color:var(--ink-faint);}
+
+  /* floating notes under the water, deliberately scattered, no order */
+  .note{position:absolute;font-size:12.5px;line-height:1.35;padding:8px 12px;border-radius:999px;
+        opacity:0;transform:translateY(10px);transition:opacity .7s ease, transform .7s ease;
+        backdrop-filter:blur(2px);white-space:nowrap;}
+  .note.show{opacity:1;transform:translateY(0);}
+  .note.guess{background:rgba(6,26,38,.82);border:1px dashed rgba(180,206,220,.45);color:#CFE3EE;font-style:italic;}
+  .note.real{background:rgba(4,32,34,.88);border:1px solid rgba(94,234,212,.75);color:#8FF3E2;font-weight:600;}
+
+  .label-tip{position:absolute;font-size:12px;font-weight:600;color:#0C2531;background:rgba(244,251,253,.92);
+             padding:5px 11px;border-radius:999px;white-space:nowrap;}
+
+  /* ---------- chat ---------- */
+  .chat{display:flex;flex-direction:column;gap:clamp(6px,1vh,10px);margin-bottom:clamp(8px,1.5vh,18px);}
+  .msg{max-width:84%;padding:clamp(9px,1.4vh,12px) 15px;border-radius:14px;font-size:clamp(12.5px,1.8vh,15px);line-height:1.45;
+       opacity:0;transform:translateY(8px);transition:opacity .5s ease, transform .5s ease;}
+  .msg.show{opacity:1;transform:translateY(0);}
+  .msg.you{align-self:flex-end;background:var(--teal-soft);border:1px solid #1F5C55;border-bottom-right-radius:4px;color:#D7F7F1;}
+  .msg.him{align-self:flex-start;background:#122E3E;border:1px solid var(--line);border-bottom-left-radius:4px;color:var(--ink);}
+  .who{font-family:'Space Grotesk',sans-serif;font-size:9.5px;letter-spacing:.6px;color:var(--ink-faint);margin-bottom:4px;}
+
+  .kicker{font-size:clamp(13px,1.95vh,16px);line-height:1.45;color:var(--ink);border-left:3px solid var(--teal);padding-left:13px;margin:2px 0 6px;}
+
+  .cards{display:flex;flex-direction:column;gap:clamp(6px,1vh,9px);margin-bottom:6px;}
+  .card{background:#0F2735;border:1px solid var(--line);border-radius:12px;padding:clamp(9px,1.5vh,14px) 16px;}
+  .card .k{font-family:'Space Grotesk',sans-serif;font-size:9.5px;letter-spacing:.7px;color:var(--teal);margin-bottom:4px;}
+  .card .v{font-size:clamp(12.5px,1.8vh,14.5px);color:var(--ink);line-height:1.4;}
+
+  .observed{background:#122E3E;border:1px solid var(--line);border-left:3px solid var(--amber);
+    border-radius:14px;padding:clamp(10px,1.6vh,15px) 17px;margin-bottom:clamp(8px,1.3vh,14px);}
+  .observed-k{font-family:'Space Grotesk',sans-serif;font-size:9.5px;letter-spacing:.7px;color:var(--amber);margin-bottom:5px;}
+  .observed-v{font-size:clamp(13.5px,2vh,17px);line-height:1.4;color:var(--ink);font-weight:600;}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:clamp(8px,1.4vh,18px);}
+  .split-col{background:#0F2735;border:1px solid var(--line);border-radius:12px;padding:clamp(9px,1.4vh,14px) 14px;}
+  .split-k{font-family:'Space Grotesk',sans-serif;font-size:9.5px;letter-spacing:.7px;margin-bottom:6px;}
+  .split-k.above{color:var(--amber);}
+  .split-k.below{color:var(--teal);}
+  .split-note{font-size:clamp(10.5px,1.4vh,12px);color:var(--ink-faint);line-height:1.4;margin-bottom:7px;}
+  .split-list{margin:0;padding-left:16px;}
+  .split-list li{font-size:clamp(11.5px,1.6vh,13.5px);color:var(--ink);line-height:1.5;}
+
+  .nav{margin-top:auto;padding-top:clamp(8px,1.5vh,18px);display:flex;justify-content:flex-end;flex:0 0 auto;}
+  .btn{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(13px,1.9vh,15px);padding:clamp(9px,1.6vh,13px) 26px;border-radius:999px;
+       border:none;cursor:pointer;background:var(--teal);color:#052421;transition:transform .1s ease;}
+  .btn:hover{transform:translateY(-1px);}
+  .btn-ghost{background:transparent;color:var(--ink-muted);border:1.5px solid var(--line);}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="pips">
+    <div class="pip on" id="pip0"></div><div class="pip" id="pip1"></div>
+    <div class="pip" id="pip2"></div><div class="pip" id="pip3"></div><div class="pip" id="pip4"></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="slide active" id="s0">
+    <div class="headline">You see what people <span class="hi">do.</span></div>
+    <p class="sub">You don't see why they do it.</p>
+    <div class="scene" id="scene0">
+    <div class="sun"></div>
+    
+  <svg class="berg-svg" viewBox="0 0 340 400" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="gTop_b1" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FFFFFF"></stop><stop offset="100%" stop-color="#DCF1F6"></stop>
+      </linearGradient>
+      <linearGradient id="gBody_b1" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#CDE9F0" stop-opacity="0.95"></stop>
+        <stop offset="55%" stop-color="#8CC6D3" stop-opacity="0.72"></stop>
+        <stop offset="100%" stop-color="#4E93A3" stop-opacity="0.45"></stop>
+      </linearGradient>
+    </defs>
+    <path d="M168 30 L150 66 L186 52 L196 84 L228 66 L242 108 L96 108 L74 88 L118 74 L138 44 Z" fill="url(#gTop_b1)"></path>
+    <path d="M74 108 L242 108 L268 158 L300 214 L288 268 L306 318 L252 366 L176 384 L104 360 L54 306 L70 250 L38 196 L52 148 Z" fill="url(#gBody_b1)"></path>
+    <path d="M96 108 L242 108 L258 142 L84 142 Z" fill="#EAF8FB" opacity="0.35"></path>
+  </svg>
+    <div class="waterline"></div>
+    <div class="zone-tag zone-top">WHAT YOU SEE</div>
+    <div class="zone-tag zone-bot">WHY THEY DO IT</div>
+    </div>
+    <p class="sub">The bit above the water is small. Everything that causes it sits below, out of sight.</p>
+    <div class="nav"><button class="btn" onclick="go(1)">Show me</button></div>
+  </div>
+
+  <!-- 2 -->
+  <div class="slide" id="s1">
+    <div class="headline">What you <span class="hi">actually see.</span></div>
+    <div class="observed">
+      <div class="observed-k">THE BEHAVIOUR</div>
+      <div class="observed-v">Rahul checks with you before every step.</div>
+    </div>
+    <p class="sub">That's it. That's everything you know about him so far.</p>
+    <div class="scene" id="scene1">
+    <div class="sun"></div>
+    
+  <svg class="berg-svg" viewBox="0 0 340 400" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="gTop_b2" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FFFFFF"></stop><stop offset="100%" stop-color="#DCF1F6"></stop>
+      </linearGradient>
+      <linearGradient id="gBody_b2" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#CDE9F0" stop-opacity="0.95"></stop>
+        <stop offset="55%" stop-color="#8CC6D3" stop-opacity="0.72"></stop>
+        <stop offset="100%" stop-color="#4E93A3" stop-opacity="0.45"></stop>
+      </linearGradient>
+    </defs>
+    <path d="M168 30 L150 66 L186 52 L196 84 L228 66 L242 108 L96 108 L74 88 L118 74 L138 44 Z" fill="url(#gTop_b2)"></path>
+    <path d="M74 108 L242 108 L268 158 L300 214 L288 268 L306 318 L252 366 L176 384 L104 360 L54 306 L70 250 L38 196 L52 148 Z" fill="url(#gBody_b2)"></path>
+    <path d="M96 108 L242 108 L258 142 L84 142 Z" fill="#EAF8FB" opacity="0.35"></path>
+  </svg>
+    <div class="waterline"></div>
+    <div class="zone-tag zone-top">WHAT YOU SEE</div>
+    <div class="zone-tag zone-bot">YOU ARE GUESSING</div>
+    <div class="label-tip" style="left:5%;top:11.0%;">He checks every step</div><div class="note guess" data-i="0" style="left:8%;top:42.0%;">not confident?</div><div class="note guess" data-i="1" style="left:54%;top:58.0%;">being careful?</div><div class="note guess" data-i="2" style="left:14%;top:75.0%;">doesn't trust himself?</div></div>
+    <p class="sub">So you start guessing. All of these could be true. <b>None of them are confirmed.</b></p>
+    <div class="nav"><button class="btn" onclick="go(2)">So ask him</button></div>
+  </div>
+
+  <!-- 3 -->
+  <div class="slide" id="s2">
+    <div class="headline">So you <span class="hi">ask.</span></div>
+    <div class="chat">
+      <div>
+        <div class="who">YOU</div>
+        <div class="msg you" id="m1">What makes you check first?</div>
+      </div>
+      <div>
+        <div class="who">RAHUL</div>
+        <div class="msg him" id="m2">My last manager checked everything I did. I got used to it. I'd rather ask than get it wrong.</div>
+      </div>
+    </div>
+    <div class="scene" id="scene2">
+    <div class="sun"></div>
+    
+  <svg class="berg-svg" viewBox="0 0 340 400" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="gTop_b3" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FFFFFF"></stop><stop offset="100%" stop-color="#DCF1F6"></stop>
+      </linearGradient>
+      <linearGradient id="gBody_b3" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#CDE9F0" stop-opacity="0.95"></stop>
+        <stop offset="55%" stop-color="#8CC6D3" stop-opacity="0.72"></stop>
+        <stop offset="100%" stop-color="#4E93A3" stop-opacity="0.45"></stop>
+      </linearGradient>
+    </defs>
+    <path d="M168 30 L150 66 L186 52 L196 84 L228 66 L242 108 L96 108 L74 88 L118 74 L138 44 Z" fill="url(#gTop_b3)"></path>
+    <path d="M74 108 L242 108 L268 158 L300 214 L288 268 L306 318 L252 366 L176 384 L104 360 L54 306 L70 250 L38 196 L52 148 Z" fill="url(#gBody_b3)"></path>
+    <path d="M96 108 L242 108 L258 142 L84 142 Z" fill="#EAF8FB" opacity="0.35"></path>
+  </svg>
+    <div class="waterline"></div>
+    <div class="zone-tag zone-top">WHAT YOU SEE</div>
+    <div class="zone-tag zone-bot">WHAT HE TOLD YOU</div>
+    <div class="label-tip" style="left:5%;top:11.0%;">He checks every step</div><div class="note real" data-i="0" style="left:10%;top:44.0%;">his old manager</div><div class="note real" data-i="1" style="left:44%;top:61.5%;">fear of getting it wrong</div><div class="note real" data-i="2" style="left:16%;top:78.0%;">wanting to feel safe</div></div>
+    <p class="sub">One sentence. Three real things, all at once.</p>
+    <div class="nav"><button class="btn" onclick="go(3)">What that means</button></div>
+  </div>
+
+  <!-- 4 -->
+  <div class="slide" id="s3">
+    <div class="headline">One action. <span class="hi">Three reasons.</span></div>
+    <p class="sub">They were all true together. There was no order to them, and no way to work them out from the outside.</p>
+    <div class="cards">
+      <div class="card"><div class="k">PAST EXPERIENCE</div><div class="v">His old manager checked everything</div></div>
+      <div class="card"><div class="k">FEAR</div><div class="v">Getting it wrong</div></div>
+      <div class="card"><div class="k">NEED</div><div class="v">To feel safe deciding on his own</div></div>
+    </div>
+    <p class="kicker">You didn't figure it out. He told you.</p>
+    <p class="sub" style="margin-top:1.5%;">The behaviour never changes on its own. It changes when you know what's holding it up.</p>
+    <div class="nav"><button class="btn" onclick="go(4)">The model behind this</button></div>
+  </div>
+
+  <!-- 5 -->
+  <div class="slide" id="s4">
+    <div class="headline">This is the <span class="hi">Iceberg Model.</span></div>
+    <p class="sub">What happened with Rahul works the same way for everyone you manage.</p>
+    <div class="split">
+      <div class="split-col">
+        <div class="split-k above">ABOVE THE WATER</div>
+        <div class="split-note">Visible to everyone. Easy to judge.</div>
+        <ul class="split-list"><li>Actions</li><li>Decisions</li><li>Words</li><li>Habits</li></ul>
+      </div>
+      <div class="split-col">
+        <div class="split-k below">BELOW THE WATER</div>
+        <div class="split-note">Invisible. Where the cause actually lives.</div>
+        <ul class="split-list"><li>Beliefs</li><li>Values</li><li>Fears</li><li>Past experiences</li><li>Needs</li></ul>
+      </div>
+    </div>
+    <p class="sub"><b>Most of it sits below, and none of it is in any order.</b> Someone can be driven by an old experience, a fear and a need all at once. It is why two people can do the same thing for completely different reasons.</p>
+    <p class="kicker">You will only ever manage the tip unless you go looking for the rest. And you get there by asking, not by watching harder.</p>
+    <div class="nav"><button class="btn btn-ghost" onclick="restart()">Start again</button></div>
+  </div>
+
+</div>
+
+<script>
+// shared iceberg artwork, jagged and asymmetric so it reads as ice not a triangle
+let __bergSeq = 0;
+function bergArt(){
+  // unique gradient ids per instance, duplicates across scenes break the fills
+  const u = 'b' + (++__bergSeq);
+  return `
+  <svg class="berg-svg" viewBox="0 0 340 400" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="gTop_${u}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#DCF1F6"/>
+      </linearGradient>
+      <linearGradient id="gBody_${u}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#CDE9F0" stop-opacity="0.95"/>
+        <stop offset="55%" stop-color="#8CC6D3" stop-opacity="0.72"/>
+        <stop offset="100%" stop-color="#4E93A3" stop-opacity="0.45"/>
+      </linearGradient>
+    </defs>
+    <path d="M168 30 L150 66 L186 52 L196 84 L228 66 L242 108 L96 108 L74 88 L118 74 L138 44 Z" fill="url(#gTop_${u})"/>
+    <path d="M74 108 L242 108 L268 158 L300 214 L288 268 L306 318 L252 366 L176 384 L104 360 L54 306 L70 250 L38 196 L52 148 Z" fill="url(#gBody_${u})"/>
+    <path d="M96 108 L242 108 L258 142 L84 142 Z" fill="#EAF8FB" opacity="0.35"/>
+  </svg>`;
+}
+
+function sceneHTML(opts){
+  const notes = (opts.notes||[]).map((n,i)=>
+    `<div class="note ${opts.kind}" data-i="${i}" style="left:${n.x};top:${n.y};">${n.t}</div>`).join('');
+  const tip = opts.tip ? `<div class="label-tip" style="left:${opts.tip.x};top:${opts.tip.y};">${opts.tip.t}</div>` : '';
+  return `
+    <div class="sun"></div>
+    ${bergArt()}
+    <div class="waterline"></div>
+    <div class="zone-tag zone-top">${opts.top}</div>
+    <div class="zone-tag zone-bot">${opts.bottom}</div>
+    ${tip}${notes}`;
+}
+
+// slide 1: pure concept
+
+// slide 2: the behaviour + unconfirmed guesses, scattered, no order
+const GUESSES = [
+  {t:'not confident?', x:'8%',  y:'168px'},
+  {t:'being careful?', x:'54%', y:'232px'},
+  {t:"doesn't trust himself?", x:'14%', y:'300px'},
+];
+
+// slide 3: the real things, also scattered, arriving together
+const REALS = [
+  {t:'his old manager', x:'10%', y:'176px'},
+  {t:'fear of getting it wrong', x:'44%', y:'246px'},
+  {t:'wanting to feel safe', x:'16%', y:'312px'},
+];
+
+function reveal(sceneId, stagger){
+  const notes = document.querySelectorAll('#'+sceneId+' .note');
+  notes.forEach((n,i)=> setTimeout(()=> n.classList.add('show'), 220 + i*stagger));
+}
+function hide(sceneId){
+  document.querySelectorAll('#'+sceneId+' .note').forEach(n=>n.classList.remove('show'));
+}
+
+function go(i){
+  ['s0','s1','s2','s3','s4'].forEach((id,k)=>{
+    document.getElementById(id).classList.toggle('active', k===i);
+    document.getElementById('pip'+k).classList.toggle('on', k<=i);
+  });
+  window.scrollTo({top:0});
+  if(i===1){ hide('scene1'); reveal('scene1', 420); }
+  if(i===4){ hide('scene4'); reveal('scene4', 130); }
+  if(i===2){
+    document.getElementById('m1').classList.remove('show');
+    document.getElementById('m2').classList.remove('show');
+    hide('scene2');
+    setTimeout(()=>document.getElementById('m1').classList.add('show'), 150);
+    setTimeout(()=>document.getElementById('m2').classList.add('show'), 800);
+    // all three surface together, not in sequence, because that is the point
+    setTimeout(()=>{
+      document.querySelectorAll('#scene2 .note').forEach(n=>n.classList.add('show'));
+    }, 1500);
+  }
+}
+
+// slide 5: the full labelled model
+document.querySelectorAll('#scene4 .note').forEach((n,i)=>{
+  // top two sit above the waterline, style them as visible
+  if(i<2){ n.style.background='rgba(245,181,71,.16)'; n.style.borderColor='rgba(245,181,71,.6)'; n.style.color='#F7D9A0'; n.style.fontStyle='normal'; n.style.fontWeight='600'; }
+  else { n.style.borderStyle='solid'; n.style.fontStyle='normal'; n.style.fontWeight='600'; }
+});
+
+function restart(){
+  hide('scene1'); hide('scene2');
+  document.getElementById('m1').classList.remove('show');
+  document.getElementById('m2').classList.remove('show');
+  go(0);
+}
+</script>
+</body>
+</html>
