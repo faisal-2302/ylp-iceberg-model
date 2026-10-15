@@ -25,7 +25,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <ThemeToggle />
       </header>
       <main style={{ maxWidth: 1040, margin: "0 auto", padding: "8px 16px 40px" }}>{children}</main>
-      <nav aria-label="Primary" style={{ position: "fixed", left: 0, right: 0, bottom: 0, background: "color-mix(in srgb, var(--canvas) 94%, transparent)", borderTop: "1px solid var(--hair)", zIndex: 10 }}>
+      <nav aria-label="Primary" style={{ position: "fixed", left: 0, right: 0, bottom: 0, background: "var(--canvas)", borderTop: "1px solid var(--hair)", zIndex: 10 }}>
         <ul style={{ display: "flex", justifyContent: "space-around", maxWidth: 560, margin: "0 auto", padding: "0 8px env(safe-area-inset-bottom)", listStyle: "none" }}>
           {NAV.map((n) => (
             <li key={n.href} style={{ flex: 1 }}>
